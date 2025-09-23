@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多空-調整倉位數值</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* 拉桿式槓桿調整樣式 */
+        .leverage-slider-container {
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .leverage-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%);
+            outline: none;
+            -webkit-appearance: none;
+            transition: all 0.3s ease;
+        }
+
+        .leverage-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid #007bff;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .leverage-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            border-color: #0056b3;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+
+        .leverage-slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid #007bff;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .slider-ticks {
+            position: relative;
+            margin-top: 10px;
+            height: 30px;
+            width: 100%;
+        }
+
+        .tick {
+            font-size: 11px;
+            color: #666;
+            cursor: pointer;
+            padding: 1px 3px;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+            position: absolute;
+            white-space: nowrap;
+            min-width: 20px;
+            text-align: center;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e0e0e0;
+        }
+
+        .tick.max-leverage {
+            color: #dc3545 !important;
+            font-weight: bold;
+        }
+
+        .tick:hover {
+            background-color: #f8f9fa;
+            color: #007bff;
+        }
+
+        .tick.active {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* 修復：隱藏重複的充足性顯示區域 */
+        #position-sufficiency {
+            display: none !important;
+        }
+
+        /* 新增：獨立的槓桿說明容器 */
+        .leverage-info-container {
+            margin-top: 15px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        #live-leverage-analysis {
+            border: 2px solid #e9ecef !important;
+            transition: all 0.3s ease;
+        }
+
+        #live-leverage-analysis.sufficient {
+            border-color: #28a745 !important;
+            background-color: #f8fff9 !important;
+        }
+
+        #live-leverage-analysis.warning {
+            border-color: #ffc107 !important;
+            background-color: #fffbf0 !important;
+        }
+
+        #live-leverage-analysis.danger {
+            border-color: #dc3545 !important;
+            background-color: #fff5f5 !important;
+        }
+
+        #current-leverage-display {
+            font-size: 16px;
+            padding: 6px 12px;
+            margin-left: 10px;
+        }
+
+        .form-control-range:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+    </style>
+</head>
+<body onload="initForm()">
+    <div class="container mt-5">
+        <h2>多空-調整倉位數值(ver:2025082401)</h2>
+        <form id="mainForm">
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label id="orderId"></label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label id="long">作多</label>
+                </div>
+                <div class="form-group col-md-6">
+                    <label id="short">作空</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label id="RPercent">1R幾%:</label>
+                </div>
+                <div class="form-group col-md-6">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="SL">SL (若停損為正數下面選單請選擇正)(單位為R)</label>
+                    <div class="form-inline">
+                        <select class="form-control" id="isSLMinus">
+                            <option value="SL_Minus" selected>負</option>
+                            <option value="SL_Plus">正</option>
+                        </select>
+                        <input type="text" class="form-control" id="SL" placeholder="輸入SL的R">
+                    </div>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="TP">TP(單位為R)</label>
+                    <input type="text" class="form-control" id="TP" placeholder="輸入TP的R">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="preserveType">保本/移動停損</label>
+                    <select class="form-control" id="preserveType" onchange="toggleInputs()">
+                        <option value="preserve" selected>保本</option>
+                        <option value="trailing">移動停損</option>
+                        <option value="preserve_trailing">保本+移動停損</option>
+                        <option value="none">不啟用</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-6">
+                </div>
+            </div>
+            <div class="form-row" id="preserveInputs">
+                <div class="form-group col-md-6">
+                    <label for="preservePercent">自動保本條件(條件為R數, 請輸入大於0之數字)</label>
+                    <input type="text" class="form-control" id="preservePercent" placeholder="輸入自動保本條件(條件為R數, 0為不啟動自動保本)">
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="savePercent">保本R數</label>
+                    <input type="text" class="form-control" id="savePercent" placeholder="輸入保本R數">
+                </div>
+            </div>
+            <div class="form-row" id="trailingInputs" style="display:none">
+                <div class="form-group col-md-6">
+                    <label for="trailingCondition">移動停損啟動條件(條件為R數, 請輸入大於0之數字)</label>
+                    <input type="text" class="form-control" id="trailingCondition" placeholder="輸入移動停損啟動條件(條件為R數, 0為不啟動移動停損)">
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="trailingAmount">回吐移動R數</label>
+                    <input type="text" class="form-control" id="trailingAmount" placeholder="輸入移動R數">
+                </div>
+            </div>
+        </form>
+
+        <!-- 槓桿分析建議區域 -->
+        <div id="leverage-analysis" class="mt-4 p-3 border rounded" style="display:none;">
+            <h4>🔍 槓桿分析建議 <small class="text-muted">(僅供參考)</small></h4>
+
+            <!-- 槓桿基本信息顯示區域 -->
+            <div id="leverage-info" class="mb-3">
+                <!-- 動態更新的槓桿基本信息 -->
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>初始持倉分析:</h6>
+                    <div id="initial-position-info" class="small">
+                        <div>• 長倉: <span id="long-notional">-</span></div>
+                        <div>• 空倉: <span id="short-notional">-</span></div>
+                        <div>• 平均名義價值: <span id="avg-notional">-</span></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>加碼設定分析:</h6>
+                    <div id="scaling-config-info" class="small">
+                        <div>• 設定上限倍數: <span id="scaling-multiplier">-</span>x</div>
+                        <div>• 最大預期持倉: <span id="max-expected">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 持倉充足性顯示區域 -->
+            <div id="position-sufficiency" class="mb-3">
+                <!-- 動態更新的持倉充足性信息 -->
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6>當前槓桿分析 (<span id="current-leverage-text">-</span>x):</h6>
+                    <div id="current-leverage-status" class="small">
+                        <div id="long-limit-status">• <span id="long-symbol-text">-</span> 持倉上限: <span id="long-limit">-</span> <span id="long-sufficient">-</span></div>
+                        <div id="short-limit-status">• <span id="short-symbol-text">-</span> 持倉上限: <span id="short-limit">-</span> <span id="short-sufficient">-</span></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>保證金需求:</h6>
+                    <div id="margin-analysis" class="small">
+                        <div>• 目前保證金: <span id="current-margin">-</span></div>
+                        <div>• 最大保證金: <span id="max-margin">-</span></div>
+                        <div>• 保證金增加: <span id="margin-increase">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="leverage-recommendation" class="mt-3 p-2 rounded">
+                <!-- 動態顯示建議內容 -->
+            </div>
+
+            <!-- 拉桿式槓桿調整控制項 -->
+            <div id="leverage-adjustment-controls" class="mt-3" style="display:none;">
+                <div class="form-group">
+                    <div class="row">
+                        <div class="col-12">
+                            <label for="leverage-slider" class="form-label">
+                                <strong>調整槓桿倍數:</strong>
+                                <span id="current-leverage-display" class="badge badge-primary">20x</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 拉桿控制器 -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="leverage-slider-container">
+                                <input type="range"
+                                       class="form-control-range leverage-slider"
+                                       id="leverage-slider"
+                                       min="1"
+                                       max="125"
+                                       step="1"
+                                       value="20">
+
+                                <!-- 拉桿刻度標記 (動態生成，精確對齊) -->
+                                <div class="slider-ticks" id="slider-ticks-container">
+                                    <!-- 刻度將由 JavaScript 動態生成 -->
+                                </div>
+                            </div>
+
+                            <!-- 新增：獨立的槓桿說明容器 -->
+                            <div class="leverage-info-container" id="leverage-limits-info">
+                                <small style="color: #6c757d;">載入中...</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 即時槓桿分析顯示 -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div id="live-leverage-analysis" class="p-3 border rounded bg-light">
+                                <h6>📊 槓桿 <span id="live-leverage-value">20</span>x 分析:</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small>
+                                            <strong><span id="live-long-symbol">-</span> 持倉上限:</strong>
+                                            <span id="live-long-limit" class="text-info">計算中...</span>
+                                            <span id="live-long-status">-</span>
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small>
+                                            <strong><span id="live-short-symbol">-</span> 持倉上限:</strong>
+                                            <span id="live-short-limit" class="text-info">計算中...</span>
+                                            <span id="live-short-status">-</span>
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <small>
+                                            <strong>保證金需求:</strong>
+                                            <span id="live-margin-requirement" class="text-warning">計算中...</span>
+                                            <strong class="ml-3">充足性:</strong>
+                                            <span id="live-overall-status">計算中...</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 確認控制項 -->
+                    <div class="form-group mt-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="leverage-confirm-checkbox">
+                            <label class="form-check-label" for="leverage-confirm-checkbox">
+                                我了解槓桿調整的風險並確認執行
+                            </label>
+                        </div>
+                        <small class="text-muted form-text">調整將同時影響長倉和空倉的槓桿設定</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-2">
+                <small class="text-muted">
+                    ⚠️ 此為分析建議，實際調整請自行決定<br>
+                    💡 槓桿調整不影響風險控制邏輯，風險仍由停損位置控管
+                </small>
+            </div>
+        </div>
+
+        <!-- 操作按鈕區域 (移到槓桿分析後方，符合用戶操作習慣) -->
+        <div class="mt-3 text-center">
+            <button type="button" class="btn btn-primary mr-2" onclick="submitAdjust()">更新資料</button>
+            <button type="button" class="btn btn-primary mr-2" onclick="closeOrder()">手動平倉</button>
+            <button type="button" class="btn btn-secondary" onclick="cancelAdjust()">取消更新</button>
+        </div>
+
+        <br/>
+    </div>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        document.addEventListener('click', (event) => {
+            const tags = ['INPUT', 'TEXTAREA']
+            const focused = document.activeElement
+            // console.log(focused.tagName)
+
+            if (focused && focused !== event.target && tags.includes(focused.tagName)) {
+                focused.blur()
+            }
+        })
+        
+        const telegram = Telegram.WebApp;
+        telegram.ready();
+        id = '';
+        long = '';
+        short = '';
+        RPercent = 0;
+        function initForm() {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            RPercent = urlParams.get('RPercent');
+            document.getElementById('RPercent').innerHTML = '1R幾%:' + RPercent + '%';
+            document.getElementById('orderId').innerHTML = urlParams.get('id');
+            id = urlParams.get('id');
+            document.getElementById('long').innerHTML = '作多:' + urlParams.get('long');
+            long = urlParams.get('long');
+            document.getElementById('short').innerHTML = '作空:' + urlParams.get('short');
+            short = urlParams.get('short');
+            document.getElementById('SL').value = Number(Math.abs(urlParams.get('sl')/RPercent).toFixed(3));
+            if(urlParams.get('sl') < 0) {
+                document.getElementById('isSLMinus').value = 'SL_Minus';
+            } else {
+                document.getElementById('isSLMinus').value = 'SL_Plus';
+            }
+            document.getElementById('TP').value = Number((urlParams.get('tp')/RPercent).toFixed(3));
+            document.getElementById('preservePercent').value = Number((urlParams.get('preservePercent')/RPercent).toFixed(3));
+            document.getElementById('savePercent').value = Number((urlParams.get('savePercent')/RPercent).toFixed(3));
+            document.getElementById('trailingCondition').value = Number((urlParams.get('trailingCondition')/RPercent).toFixed(3));
+            document.getElementById('trailingAmount').value = Number((urlParams.get('trailingAmount')/RPercent).toFixed(3));
+            // 判斷當前的保本/移動停損模式
+            const hasPreserve = urlParams.get('preservePercent') != 0 && urlParams.get('savePercent') != 0;
+            const hasTrailing = urlParams.get('trailingCondition') != 0 && urlParams.get('trailingAmount') != 0;
+            
+            if (hasPreserve && hasTrailing) {
+                document.getElementById('preserveType').value = 'preserve_trailing';
+            } else if (hasPreserve) {
+                document.getElementById('preserveType').value = 'preserve';
+            } else if (hasTrailing) {
+                document.getElementById('preserveType').value = 'trailing';
+            } else {
+                document.getElementById('preserveType').value = 'none';
+            }
+            toggleInputs();
+
+            // 槓桿分析參數解析
+            initLeverageAnalysis(urlParams);
+        }
+
+        function initLeverageAnalysis(urlParams) {
+            // 解析槓桿分析相關參數
+            const leverage = urlParams.get('leverage');
+            const needsLeverageAdjustment = urlParams.get('needsLeverageAdjustment') === 'true';
+            const suggestedLeverage = urlParams.get('suggestedLeverage');
+            const maxExpectedNotional = urlParams.get('maxExpectedNotional');
+            const currentMargin = urlParams.get('currentMargin');
+            const maxMargin = urlParams.get('maxMargin');
+            const longSufficient = urlParams.get('longSufficient') === 'true';
+            const shortSufficient = urlParams.get('shortSufficient') === 'true';
+
+            // 解析新增的槓桿分析參數
+            const scalingMultiplier = urlParams.get('scalingMultiplier') || '5';
+            const longLimit = parseFloat(urlParams.get('longLimit')) || 0;
+            const shortLimit = parseFloat(urlParams.get('shortLimit')) || 0;
+            const longSymbol = urlParams.get('longSymbol') || '-';
+            const shortSymbol = urlParams.get('shortSymbol') || '-';
+
+            // 解析帳戶餘額參數 (用於保證金充足性檢查)
+            const accountBalance = parseFloat(urlParams.get('accountBalance')) || 0;
+            console.log(`[ACCOUNT-BALANCE] 接收到帳戶餘額: $${accountBalance.toFixed(2)}`);
+
+            // 解析真實的 Binance 槓桿數據
+            const leverageDataParam = urlParams.get('leverageData');
+            if (leverageDataParam) {
+                try {
+                    realLeverageData = JSON.parse(decodeURIComponent(leverageDataParam));
+                    console.log('[LEVERAGE-INIT] 成功載入真實 Binance 槓桿數據:', realLeverageData);
+                } catch (e) {
+                    console.error('[LEVERAGE-INIT] 解析槓桿數據失敗:', e);
+                    realLeverageData = null;
+                }
+            }
+
+            // 更新槓桿分析顯示區域
+            if (leverage) {
+                const analysisSection = document.getElementById('leverage-analysis');
+                analysisSection.style.display = 'block';
+
+                // 更新基本信息
+                const longNotional = parseFloat(urlParams.get('longNotional')) || 0;
+                const shortNotional = parseFloat(urlParams.get('shortNotional')) || 0;
+
+                // 更新基本信息到對應的HTML元素
+                document.getElementById('current-leverage-text').textContent = leverage;
+                document.getElementById('long-notional').textContent = `$${longNotional.toFixed(2)}`;
+                document.getElementById('short-notional').textContent = `$${shortNotional.toFixed(2)}`;
+                document.getElementById('avg-notional').textContent = `$${((longNotional + shortNotional) / 2).toFixed(2)}`;
+                document.getElementById('max-expected').textContent = `$${parseFloat(maxExpectedNotional || 0).toFixed(2)}`;
+                document.getElementById('current-margin').textContent = `$${parseFloat(currentMargin || 0).toFixed(2)}`;
+                document.getElementById('max-margin').textContent = `$${parseFloat(maxMargin || 0).toFixed(2)}`;
+                document.getElementById('margin-increase').textContent = `$${(parseFloat(maxMargin || 0) - parseFloat(currentMargin || 0)).toFixed(2)}`;
+
+                // 更新新增的槓桿分析顯示元素
+                if (document.getElementById('scaling-multiplier')) {
+                    document.getElementById('scaling-multiplier').textContent = scalingMultiplier;
+                }
+
+                // 修復：重新計算正確的持倉上限，不依賴 URL 參數
+                const recalcLongLimit = calculatePositionLimit(longSymbol, parseInt(leverage));
+                const recalcShortLimit = calculatePositionLimit(shortSymbol, parseInt(leverage));
+
+                console.log(`[INIT-LIMITS] URL 參數: longLimit=${longLimit}, shortLimit=${shortLimit}`);
+                console.log(`[INIT-LIMITS] 重新計算: longLimit=${recalcLongLimit}, shortLimit=${recalcShortLimit}`);
+
+                if (document.getElementById('long-limit')) {
+                    const displayLongLimit = recalcLongLimit > 0 ? recalcLongLimit : longLimit;
+                    const longLimitDisplay = displayLongLimit > 0 ? `$${displayLongLimit.toLocaleString()}` : '計算中...';
+                    document.getElementById('long-limit').textContent = longLimitDisplay;
+                }
+                if (document.getElementById('short-limit')) {
+                    const displayShortLimit = recalcShortLimit > 0 ? recalcShortLimit : shortLimit;
+                    const shortLimitDisplay = displayShortLimit > 0 ? `$${displayShortLimit.toLocaleString()}` : '計算中...';
+                    document.getElementById('short-limit').textContent = shortLimitDisplay;
+                }
+
+                if (document.getElementById('long-symbol-text')) {
+                    document.getElementById('long-symbol-text').textContent = longSymbol;
+                }
+                if (document.getElementById('short-symbol-text')) {
+                    document.getElementById('short-symbol-text').textContent = shortSymbol;
+                }
+
+                // 修復：重新計算充足性，使用重新計算的持倉上限
+                const maxExpected = parseFloat(maxExpectedNotional) || 0;
+                let recalcLongSufficient = false;
+                let recalcShortSufficient = false;
+
+                const finalLongLimit = recalcLongLimit > 0 ? recalcLongLimit : longLimit;
+                const finalShortLimit = recalcShortLimit > 0 ? recalcShortLimit : shortLimit;
+
+                if (finalLongLimit > 0 && maxExpected > 0) {
+                    recalcLongSufficient = maxExpected <= finalLongLimit;
+                }
+                if (finalShortLimit > 0 && maxExpected > 0) {
+                    recalcShortSufficient = maxExpected <= finalShortLimit;
+                }
+
+                console.log(`[INIT-SUFFICIENCY] 重新計算充足性: finalLongLimit=${finalLongLimit}, finalShortLimit=${finalShortLimit}, maxExpected=${maxExpected}`);
+                console.log(`[INIT-SUFFICIENCY] 長倉充足性: ${recalcLongSufficient} (${maxExpected} <= ${finalLongLimit})`);
+                console.log(`[INIT-SUFFICIENCY] 空倉充足性: ${recalcShortSufficient} (${maxExpected} <= ${finalShortLimit})`);
+
+                if (document.getElementById('long-sufficient')) {
+                    // 使用重新計算的充足性
+                    if (finalLongLimit > 0 && maxExpected > 0) {
+                        document.getElementById('long-sufficient').innerHTML = `${recalcLongSufficient ? '<span style="color:green">✅ 充足</span>' : '<span style="color:red">❌ 不足</span>'}`;
+                    } else {
+                        document.getElementById('long-sufficient').innerHTML = '<span style="color:gray">計算中...</span>';
+                    }
+                }
+
+                if (document.getElementById('short-sufficient')) {
+                    if (finalShortLimit > 0 && maxExpected > 0) {
+                        document.getElementById('short-sufficient').innerHTML = `${recalcShortSufficient ? '<span style="color:green">✅ 充足</span>' : '<span style="color:red">❌ 不足</span>'}`;
+                    } else {
+                        document.getElementById('short-sufficient').innerHTML = '<span style="color:gray">計算中...</span>';
+                    }
+                }
+
+                // 修復：更新 leverage-info 區域（顯示彙總信息）
+                const hasValidData = finalLongLimit > 0 && finalShortLimit > 0;
+
+                // 計算保證金充足性
+                const maxExpected = parseFloat(maxExpectedNotional) || 0;
+                const marginRequirement = maxExpected > 0 ? (maxExpected * 2) / parseInt(leverage) : 0;
+                const marginSufficient = accountBalance > 0 && marginRequirement > 0 ? accountBalance >= marginRequirement : false;
+
+                // 使用後端傳來的正確結果
+                const overallSufficient = hasValidData ? (longSufficient && shortSufficient && marginSufficient) : null;
+
+                document.getElementById('leverage-info').innerHTML = `
+                    <div class="row">
+                        <div class="col-sm-6"><strong>目前槓桿:</strong> ${leverage}x</div>
+                        <div class="col-sm-6"><strong>總體狀態:</strong> ${
+                            overallSufficient === null ? '<span style="color:gray">計算中...</span>' :
+                            overallSufficient ? '<span style="color:green">✅ 保證金與槓桿充足</span>' : '<span style="color:orange">⚠️ 需增加保證金或調整槓桿</span>'
+                        }</div>
+                    </div>
+                `;
+
+                // 修復：更新 position-sufficiency 區域（詳細持倉分析）
+                document.getElementById('position-sufficiency').innerHTML = `
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <small><strong>長倉充足性:</strong> ${
+                                !hasValidData ? '<span style="color:gray">計算中...</span>' :
+                                longSufficient ? '<span style="color:green">✅ 充足</span>' : '<span style="color:red">❌ 不足</span>'
+                            }</small>
+                        </div>
+                        <div class="col-sm-6">
+                            <small><strong>空倉充足性:</strong> ${
+                                !hasValidData ? '<span style="color:gray">計算中...</span>' :
+                                shortSufficient ? '<span style="color:green">✅ 充足</span>' : '<span style="color:red">❌ 不足</span>'
+                            }</small>
+                        </div>
+                    </div>
+                `;
+
+                // 更新建議與控制
+                const recommendationDiv = document.getElementById('leverage-recommendation');
+                const adjustmentControlsDiv = document.getElementById('leverage-adjustment-controls');
+
+                // 根據是否有建議顯示不同的建議文字
+                if (needsLeverageAdjustment && suggestedLeverage) {
+                    recommendationDiv.innerHTML = `
+                        <div class="recommendation-warning">
+                            ⚠️ 系統建議調整槓桿至: ${suggestedLeverage}x
+                        </div>
+                    `;
+                } else {
+                    recommendationDiv.innerHTML = `
+                        <div class="recommendation-ok">
+                            ✅ 目前槓桿充足，無需調整
+                            <br><small>🔧 您也可以手動調整槓桿 (可選)</small>
+                        </div>
+                    `;
+                }
+
+                // 始終顯示調整控制項，讓用戶隨時可以調整
+                adjustmentControlsDiv.style.display = 'block';
+
+                // 初始化拉桿式槓桿調整
+                initLeverageSlider(leverage, suggestedLeverage, needsLeverageAdjustment, longSymbol, shortSymbol, parseFloat(maxExpectedNotional), accountBalance);
+            } else {
+                // 如果沒有槓桿分析數據，隱藏整個區域
+                document.getElementById('leverage-analysis').style.display = 'none';
+            }
+        }
+
+        // 全域變數儲存槓桿分析相關數據
+        let globalLeverageData = {
+            longSymbol: '',
+            shortSymbol: '',
+            maxExpectedNotional: 0,
+            currentLeverage: 20,
+            suggestedLeverage: 20,
+            accountBalance: 0
+        };
+
+        function initLeverageSlider(currentLeverage, suggestedLeverage, needsAdjustment, longSymbol, shortSymbol, maxExpectedNotional, accountBalance) {
+            // 儲存全域數據
+            globalLeverageData = {
+                longSymbol: longSymbol,
+                shortSymbol: shortSymbol,
+                maxExpectedNotional: maxExpectedNotional,
+                currentLeverage: parseInt(currentLeverage),
+                suggestedLeverage: parseInt(suggestedLeverage),
+                accountBalance: accountBalance || 0
+            };
+
+            const leverageSlider = document.getElementById('leverage-slider');
+            const currentLeverageDisplay = document.getElementById('current-leverage-display');
+            const liveLeverageValue = document.getElementById('live-leverage-value');
+
+            // 計算交易對的最大槓桿限制
+            const maxLeverageData = getMaxLeverageForSymbols(longSymbol, shortSymbol);
+            const actualMaxLeverage = maxLeverageData.max;
+
+            // 動態設定拉桿最大值
+            leverageSlider.min = 1;
+            leverageSlider.max = actualMaxLeverage;
+            leverageSlider.value = Math.min(parseInt(currentLeverage), actualMaxLeverage);
+
+            // 更新顯示
+            currentLeverageDisplay.textContent = leverageSlider.value + 'x';
+            liveLeverageValue.textContent = leverageSlider.value;
+
+            // 動態生成刻度標記
+            generateSliderTicks(actualMaxLeverage, maxLeverageData);
+
+            // 初始化即時分析區域
+            updateLiveLeverageAnalysis(parseInt(leverageSlider.value));
+
+            // 添加拉桿事件監聽器
+            leverageSlider.addEventListener('input', function(e) {
+                const newLeverage = parseInt(e.target.value);
+                currentLeverageDisplay.textContent = newLeverage + 'x';
+                liveLeverageValue.textContent = newLeverage;
+
+                // 更新刻度標記
+                updateSliderTicks(newLeverage);
+
+                // 即時更新槓桿分析
+                updateLiveLeverageAnalysis(newLeverage);
+            });
+
+            // 初始化刻度標記點擊事件
+            initSliderTicks();
+
+            // 更新刻度標記
+            updateSliderTicks(parseInt(leverageSlider.value));
+
+            console.log(`[LEVERAGE-SLIDER] 初始化完成: ${longSymbol}(最大${maxLeverageData.long}x) ${shortSymbol}(最大${maxLeverageData.short}x) 實際上限${actualMaxLeverage}x`);
+        }
+
+        function getMaxLeverageForSymbols(longSymbol, shortSymbol) {
+            let longMax = 125, shortMax = 125;
+
+            // 修復：使用新的數據結構檢測最大槓桿
+            if (realLeverageData && realLeverageData.brackets) {
+                if (realLeverageData.brackets[longSymbol] && realLeverageData.brackets[longSymbol].length > 0) {
+                    const longBrackets = realLeverageData.brackets[longSymbol];
+                    longMax = Math.max(...longBrackets.map(b => b.leverage));
+                }
+                if (realLeverageData.brackets[shortSymbol] && realLeverageData.brackets[shortSymbol].length > 0) {
+                    const shortBrackets = realLeverageData.brackets[shortSymbol];
+                    shortMax = Math.max(...shortBrackets.map(b => b.leverage));
+                }
+                console.log(`[LEVERAGE-MAX] 使用真實數據: ${longSymbol}=${longMax}x, ${shortSymbol}=${shortMax}x`);
+            } else {
+                // 備用：已知的交易對最大槓桿限制
+                const knownLimits = {
+                    'DEXEUSDT': 50,
+                    'DOGEUSDT': 75,
+                    'BTCUSDT': 125,
+                    'ETHUSDT': 125
+                };
+                longMax = knownLimits[longSymbol] || 125;
+                shortMax = knownLimits[shortSymbol] || 125;
+                console.log(`[LEVERAGE-MAX] 使用備用數據: ${longSymbol}=${longMax}x, ${shortSymbol}=${shortMax}x`);
+            }
+
+            return {
+                long: longMax,
+                short: shortMax,
+                max: Math.min(longMax, shortMax) // 取較小的作為實際上限
+            };
+        }
+
+        function generateSliderTicks(maxLeverage, leverageData) {
+            const container = document.getElementById('slider-ticks-container');
+            container.innerHTML = '';
+
+            // 智能生成刻度值，避免重疊
+            let tickValues = [1];
+            const minSpacing = 15; // 最小間距 (%)
+
+            // 根據最大槓桿動態調整刻度
+            if (maxLeverage <= 10) {
+                tickValues = [1, 5, 10].filter(v => v <= maxLeverage);
+            } else if (maxLeverage <= 25) {
+                tickValues = [1, 5, 10, 20, 25].filter(v => v <= maxLeverage);
+            } else if (maxLeverage <= 50) {
+                tickValues = [1, 10, 20, 50].filter(v => v <= maxLeverage);
+            } else if (maxLeverage <= 100) {
+                tickValues = [1, 20, 50, 75, 100].filter(v => v <= maxLeverage);
+            } else {
+                tickValues = [1, 25, 50, 100, 125].filter(v => v <= maxLeverage);
+            }
+
+            // 確保最大槓桿值在刻度中
+            if (!tickValues.includes(maxLeverage)) {
+                tickValues.push(maxLeverage);
+                tickValues.sort((a, b) => a - b);
+            }
+
+            // 檢查並移除過於接近的刻度
+            const filteredTicks = [tickValues[0]]; // 保留第一個
+            for (let i = 1; i < tickValues.length; i++) {
+                const currentPos = ((tickValues[i] - 1) / (maxLeverage - 1)) * 100;
+                const lastPos = ((filteredTicks[filteredTicks.length - 1] - 1) / (maxLeverage - 1)) * 100;
+
+                if (Math.abs(currentPos - lastPos) >= minSpacing || tickValues[i] === maxLeverage) {
+                    filteredTicks.push(tickValues[i]);
+                }
+            }
+
+            // 生成刻度標記
+            filteredTicks.forEach(value => {
+                const tick = document.createElement('span');
+                tick.className = 'tick';
+                tick.setAttribute('data-value', value);
+                tick.textContent = value + 'x';
+
+                // 計算精確的位置 (線性分佈)
+                const position = ((value - 1) / (maxLeverage - 1)) * 100;
+                tick.style.left = Math.max(0, Math.min(100, position)) + '%';
+                tick.style.position = 'absolute';
+                tick.style.transform = 'translateX(-50%)';
+
+                // 特殊標記
+                if (value === maxLeverage) {
+                    tick.classList.add('max-leverage');
+                    tick.style.color = '#dc3545';
+                    tick.style.fontWeight = 'bold';
+                    tick.style.zIndex = '20';
+                }
+
+                // 點擊事件
+                tick.addEventListener('click', () => {
+                    document.getElementById('leverageSlider').value = value;
+                    updateLiveLeverageAnalysis(value);
+                });
+
+                container.appendChild(tick);
+            });
+
+            // 修復：將說明文字移到獨立容器，不添加到刻度容器中
+            const leverageLimitsInfo = document.getElementById('leverage-limits-info');
+            if (leverageLimitsInfo) {
+                leverageLimitsInfo.innerHTML = `<small style="color: #6c757d;">
+                    ${leverageData.long !== leverageData.short ?
+                        `${globalLeverageData.longSymbol}: 最大${leverageData.long}x, ${globalLeverageData.shortSymbol}: 最大${leverageData.short}x` :
+                        `最大槓桿: ${maxLeverage}x`}
+                </small>`;
+            }
+        }
+
+        function initSliderTicks() {
+            const ticks = document.querySelectorAll('.tick');
+            ticks.forEach(tick => {
+                tick.addEventListener('click', function() {
+                    const value = parseInt(this.getAttribute('data-value'));
+                    const leverageSlider = document.getElementById('leverage-slider');
+                    leverageSlider.value = value;
+
+                    // 觸發 input 事件
+                    leverageSlider.dispatchEvent(new Event('input'));
+                });
+            });
+        }
+
+        function updateSliderTicks(currentValue) {
+            const ticks = document.querySelectorAll('.tick');
+            ticks.forEach(tick => {
+                const tickValue = parseInt(tick.getAttribute('data-value'));
+                if (tickValue === currentValue) {
+                    tick.classList.add('active');
+                } else {
+                    tick.classList.remove('active');
+                }
+            });
+        }
+
+        function updateLiveLeverageAnalysis(leverage) {
+            // 計算該槓桿下的持倉上限
+            const longLimit = calculatePositionLimit(globalLeverageData.longSymbol, leverage);
+            const shortLimit = calculatePositionLimit(globalLeverageData.shortSymbol, leverage);
+
+            // 修復：確保有有效的數據才進行充足性計算
+            const maxExpected = globalLeverageData.maxExpectedNotional || 0;
+            const hasValidData = longLimit > 0 && shortLimit > 0 && maxExpected > 0;
+
+            let longSufficient = false;
+            let shortSufficient = false;
+            let overallSufficient = false;
+
+            // 計算保證金需求
+            const marginRequirement = maxExpected > 0 ? (maxExpected * 2) / leverage : 0;
+
+            // 修復：基於保證金需求 vs 帳戶餘額的充足性檢查
+            const accountBalance = globalLeverageData.accountBalance || 0;
+            const marginSufficient = marginRequirement > 0 && accountBalance > 0 ? accountBalance >= marginRequirement : false;
+
+            if (hasValidData) {
+                longSufficient = maxExpected <= longLimit;
+                shortSufficient = maxExpected <= shortLimit;
+                overallSufficient = longSufficient && shortSufficient && marginSufficient;
+                console.log(`[LIVE-ANALYSIS] ${leverage}x: 長倉 ${longSufficient ? '✅' : '❌'} (${maxExpected} <= ${longLimit}), 空倉 ${shortSufficient ? '✅' : '❌'} (${maxExpected} <= ${shortLimit}), 保證金 ${marginSufficient ? '✅' : '❌'}`);
+            } else {
+                console.log(`[LIVE-ANALYSIS] ${leverage}x: 數據不足，無法計算充足性 (longLimit=${longLimit}, shortLimit=${shortLimit}, maxExpected=${maxExpected})`);
+            }
+
+            console.log(`[MARGIN-CHECK] ${leverage}x: 保證金需求 ${marginRequirement.toFixed(2)} vs 帳戶餘額 ${accountBalance.toFixed(2)} = ${marginSufficient ? '充足' : '不足'}`);
+
+            // 修復：更新顯示邏輯，根據數據有效性顯示不同狀態
+            document.getElementById('live-long-symbol').textContent = globalLeverageData.longSymbol || '-';
+            document.getElementById('live-short-symbol').textContent = globalLeverageData.shortSymbol || '-';
+            document.getElementById('live-long-limit').textContent = longLimit > 0 ? `$${longLimit.toLocaleString()}` : '計算中...';
+            document.getElementById('live-short-limit').textContent = shortLimit > 0 ? `$${shortLimit.toLocaleString()}` : '計算中...';
+
+            // 修復：只有在有有效數據時才顯示充足性狀態
+            if (hasValidData) {
+                document.getElementById('live-long-status').innerHTML = longSufficient ? '<span style="color:green">✅</span>' : '<span style="color:red">❌</span>';
+                document.getElementById('live-short-status').innerHTML = shortSufficient ? '<span style="color:green">✅</span>' : '<span style="color:red">❌</span>';
+
+                // 修復：總體充足性基於槓桿充足性和保證金充足性
+                if (marginRequirement > 0 && accountBalance > 0) {
+                    document.getElementById('live-overall-status').innerHTML = overallSufficient ?
+                        '<span style="color:green">✅ 保證金與槓桿充足</span>' : '<span style="color:red">❌ 需增加保證金或調整槓桿</span>';
+                } else {
+                    document.getElementById('live-overall-status').innerHTML = '<span style="color:gray">計算中...</span>';
+                }
+            } else {
+                document.getElementById('live-long-status').innerHTML = '<span style="color:gray">計算中...</span>';
+                document.getElementById('live-short-status').innerHTML = '<span style="color:gray">計算中...</span>';
+                document.getElementById('live-overall-status').innerHTML = '<span style="color:gray">計算中...</span>';
+            }
+
+            document.getElementById('live-margin-requirement').textContent = marginRequirement > 0 ? `$${marginRequirement.toFixed(2)}` : '計算中...';
+
+            // 修復：更新分析框架的樣式，基於總體充足性
+            const analysisBox = document.getElementById('live-leverage-analysis');
+            analysisBox.className = 'p-3 border rounded bg-light';
+            if (!hasValidData) {
+                // 數據不足時的樣式
+            } else if (overallSufficient) {
+                analysisBox.classList.add('sufficient');
+            } else {
+                analysisBox.classList.add('danger');
+            }
+        }
+
+        // 全域變數儲存 Binance 真實槓桿數據
+        let realLeverageData = null;
+
+        function calculatePositionLimit(symbol, leverage) {
+            // 修復：使用新的 Binance API 數據結構
+            if (realLeverageData && realLeverageData.brackets && realLeverageData.brackets[symbol]) {
+                const brackets = realLeverageData.brackets[symbol];
+
+                // 使用正確的區間邏輯 (找到第一個能覆蓋該槓桿的級別)
+                for (const bracket of brackets) {
+                    if (leverage <= bracket.leverage) {
+                        console.log(`[LEVERAGE-CALC] ${symbol} ${leverage}x 使用真實數據 (區間 ${bracket.leverage}x): $${bracket.limit.toLocaleString()}`);
+                        return bracket.limit;
+                    }
+                }
+
+                // 如果超過所有級別，使用最後一個級別
+                if (brackets.length > 0) {
+                    const lastBracket = brackets[brackets.length - 1];
+                    console.log(`[LEVERAGE-CALC] ${symbol} ${leverage}x 超過最大級別，使用 ${lastBracket.leverage}x: $${lastBracket.limit.toLocaleString()}`);
+                    return lastBracket.limit;
+                }
+            }
+
+            // 備用：修正的持倉上限計算 (修復 DEXE 和 DOGE 的正確數值)
+            console.log(`[LEVERAGE-CALC] ${symbol} ${leverage}x 使用備用數據`);
+            const leverageLimits = {
+                'BTCUSDT': {1: 10000000, 5: 5000000, 10: 1000000, 20: 500000, 50: 100000, 125: 50000},
+                'ETHUSDT': {1: 5000000, 5: 2500000, 10: 500000, 20: 250000, 50: 50000, 125: 25000},
+                'DEXEUSDT': {1: 500000, 5: 250000, 10: 100000, 20: 50000, 50: 5000, 125: 5000},
+                'DOGEUSDT': {1: 10000000, 5: 5000000, 10: 2000000, 20: 1000000, 50: 150000, 75: 150000, 125: 150000},
+                'default': {1: 1000000, 5: 500000, 10: 200000, 20: 100000, 50: 20000, 125: 10000}
+            };
+
+            const limits = leverageLimits[symbol] || leverageLimits['default'];
+
+            // 修復：使用正確的區間邏輯
+            const leverageLevels = Object.keys(limits).map(k => parseInt(k)).sort((a, b) => a - b);
+
+            for (const lev of leverageLevels) {
+                if (leverage <= lev) {
+                    console.log(`[LEVERAGE-CALC] ${symbol} ${leverage}x 使用備用數據 (區間 ${lev}x): $${limits[lev].toLocaleString()}`);
+                    return limits[lev];
+                }
+            }
+
+            // 如果超過所有級別，使用最後一個級別
+            if (leverageLevels.length > 0) {
+                const lastLevel = leverageLevels[leverageLevels.length - 1];
+                console.log(`[LEVERAGE-CALC] ${symbol} ${leverage}x 超過最大級別，使用備用 ${lastLevel}x: $${limits[lastLevel].toLocaleString()}`);
+                return limits[lastLevel];
+            }
+
+            return 0;
+        }
+
+        function toggleInputs() {
+            const type = document.getElementById('preserveType').value;
+            document.getElementById('preserveInputs').style.display = 
+                (type === 'preserve' || type === 'preserve_trailing') ? 'flex' : 'none';
+            document.getElementById('trailingInputs').style.display = 
+                (type === 'trailing' || type === 'preserve_trailing') ? 'flex' : 'none';
+        }
+
+        function submitAdjust() {
+            var SL = document.getElementById('SL').value;
+            const isSLMinus = document.getElementById('isSLMinus').value;
+            let TP = document.getElementById('TP').value;
+            let preservePercent = parseFloat(document.getElementById('preservePercent').value);
+            let savePercent = parseFloat(document.getElementById('savePercent').value);
+            let trailingCondition = parseFloat(document.getElementById('trailingCondition').value);
+            let trailingAmount = parseFloat(document.getElementById('trailingAmount').value);
+            const preserveType = document.getElementById('preserveType').value;
+
+            // 槓桿調整相關變數
+            let newLeverage = '';
+            let isLeverageAdjustment = false;
+            const leverageAnalysisSection = document.getElementById('leverage-analysis');
+            const leverageCheckbox = document.getElementById('leverage-confirm-checkbox');
+            const leverageSlider = document.getElementById('leverage-slider');
+
+            // 檢查是否有槓桿分析且用戶選擇要調整
+            if (leverageAnalysisSection && leverageAnalysisSection.style.display !== 'none') {
+                const adjustmentControls = document.getElementById('leverage-adjustment-controls');
+                if (adjustmentControls && adjustmentControls.style.display !== 'none') {
+                    // 檢查確認勾選框
+                    if (leverageCheckbox && leverageCheckbox.checked) {
+                        if (leverageSlider && leverageSlider.value) {
+                            newLeverage = leverageSlider.value;
+                            isLeverageAdjustment = true;
+                        } else {
+                            alert('請設定新的槓桿值');
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (SL === '' || TP === '') {
+                alert('請輸入SL, TP');
+                return;
+            }
+
+            if (isNaN(SL) || isNaN(TP)) {
+                alert('SL, TP, 必須為數字');
+                return;
+            }
+
+            if (preserveType === 'preserve') {
+                if (preservePercent === '') {
+                    alert('請輸入自動保本條件');
+                    return;
+                }
+                if (savePercent === '') {
+                    alert('請輸入保本R數');
+                    return;
+                }
+                if (isNaN(preservePercent) || isNaN(savePercent)) {
+                    alert('自動保本條件和保本R數必須為數字');
+                    return;
+                }
+                if (preservePercent <= 0 || savePercent <= 0) {
+                    alert('自動保本條件和保本R數必須為大於0的數字');
+                    return;
+                }
+            } else if (preserveType === 'trailing') {
+                if (trailingCondition === '') {
+                    alert('請輸入移動停損啟動條件');
+                    return;
+                }
+                if (trailingAmount === '') {
+                    alert('請輸入回吐移動R數');
+                    return;
+                }
+                if (isNaN(trailingCondition) || isNaN(trailingAmount)) {
+                    alert('移動停損啟動條件和回吐移動R數必須為數字');
+                    return;
+                }
+                if (trailingCondition <= 0 || trailingAmount <= 0) {
+                    alert('移動停損啟動條件和回吐移動R數必須為大於0的數字');
+                    return;
+                }
+            } else if (preserveType === 'preserve_trailing') {
+                // 保本+移動停損模式的驗證
+                if (preservePercent === '') {
+                    alert('請輸入自動保本條件');
+                    return;
+                }
+                if (savePercent === '') {
+                    alert('請輸入保本R數');
+                    return;
+                }
+                if (trailingCondition === '') {
+                    alert('請輸入移動停損啟動條件');
+                    return;
+                }
+                if (trailingAmount === '') {
+                    alert('請輸入回吐移動R數');
+                    return;
+                }
+                if (isNaN(preservePercent) || isNaN(savePercent) || isNaN(trailingCondition) || isNaN(trailingAmount)) {
+                    alert('所有參數必須為數字');
+                    return;
+                }
+                if (preservePercent <= 0 || savePercent <= 0 || trailingCondition <= 0 || trailingAmount <= 0) {
+                    alert('所有參數必須為大於0的數字');
+                    return;
+                }
+                // 關鍵驗證：保本啟動R數不可大於等於移動停損啟動R數
+                if (parseFloat(preservePercent) >= parseFloat(trailingCondition)) {
+                    alert('保本啟動R數不可大於等於移動停損啟動R數');
+                    return;
+                }
+            }
+            
+            // 根據選擇的模式設定參數
+            if (preserveType === 'none') {
+                preservePercent = 0;
+                savePercent = 0;
+                trailingCondition = 0;
+                trailingAmount = 0;
+            } else if (preserveType === 'preserve') {
+                trailingCondition = 0;
+                trailingAmount = 0;
+            } else if (preserveType === 'trailing') {
+                preservePercent = 0;
+                savePercent = 0;
+            }
+
+            
+            if (isSLMinus === 'SL_Minus') {
+                SL = -SL;
+            }
+            const orig_SL = SL;
+            const orig_TP = TP;
+            const orig_preservePercent = preservePercent;
+            const orig_savePercent = savePercent;
+            const orig_trailingCondition = trailingCondition;
+            const orig_trailingAmount = trailingAmount;
+
+            SL = Number((SL * RPercent).toFixed(3));
+            TP = Number(Math.abs(TP * RPercent).toFixed(3));
+            if (preserveType === 'preserve') {
+                preservePercent = Number(Math.abs(preservePercent * RPercent).toFixed(3));
+                savePercent = Number(Math.abs(savePercent * RPercent).toFixed(3));
+                trailingCondition = 0;
+                trailingAmount = 0;
+            } else if (preserveType === 'trailing') {
+                trailingCondition = Number(Math.abs(trailingCondition * RPercent).toFixed(3));
+                trailingAmount = Number(Math.abs(trailingAmount * RPercent).toFixed(3));
+                preservePercent = 0;
+                savePercent = 0;
+            } else if (preserveType === 'preserve_trailing') {
+                preservePercent = Number(Math.abs(preservePercent * RPercent).toFixed(3));
+                savePercent = Number(Math.abs(savePercent * RPercent).toFixed(3));
+                trailingCondition = Number(Math.abs(trailingCondition * RPercent).toFixed(3));
+                trailingAmount = Number(Math.abs(trailingAmount * RPercent).toFixed(3));
+            } else {
+                preservePercent = 0;
+                savePercent = 0;
+                trailingCondition = 0;
+                trailingAmount = 0;
+            }
+            
+            var result = '';
+            result = 'id=' + id + '&SL=' + SL + '&TP=' + TP + '&preservePercent=' + preservePercent + '&savePercent=' + savePercent + '&trailingCondition=' + trailingCondition + '&trailingAmount=' + trailingAmount + '&preserveType=' + preserveType;
+
+            // 添加槓桿調整參數
+            if (isLeverageAdjustment) {
+                result += '&newLeverage=' + newLeverage;
+            }
+            var checkResult = '請確認修改參數:\n作多:' + long + '\n作空:' + short + '\n1R幾%:'+ RPercent + '%\nSL:' + SL + '%('+ orig_SL + 'R)\nTP:' + TP + '%(' + orig_TP +'R)';
+            if (preserveType === 'preserve') {
+                checkResult += '\n自動保本條件:' + preservePercent + '%(' + orig_preservePercent + 'R)\n保本R數:' + savePercent + '%(' + orig_savePercent + 'R)';
+            } else if (preserveType === 'trailing') {
+                checkResult += '\n移動停損條件:' + trailingCondition + '%(' + orig_trailingCondition + 'R)\n回吐移動R數:' + trailingAmount + '%(' + orig_trailingAmount + 'R)';
+            } else if (preserveType === 'preserve_trailing') {
+                checkResult += '\n保本+移動停損模式\n自動保本條件:' + preservePercent + '%(' + orig_preservePercent + 'R)\n保本R數:' + savePercent + '%(' + orig_savePercent + 'R)\n移動停損條件:' + trailingCondition + '%(' + orig_trailingCondition + 'R)\n回吐移動R數:' + trailingAmount + '%(' + orig_trailingAmount + 'R)';
+            } else {
+                checkResult += '\n不啟用保本/移動停損';
+            }
+
+            // 添加槓桿調整確認信息
+            if (isLeverageAdjustment) {
+                checkResult += '\n\n🔧 槓桿調整:\n新槓桿: ' + newLeverage + 'x';
+                checkResult += '\n⚠️ 注意: 調整槓桿會同時影響長倉和空倉';
+            }
+
+            telegram.showConfirm(checkResult, function(isOK){
+                if (isOK) {
+                    telegram.sendData(result);
+                }
+            })
+            
+            return;
+        }
+
+        function closeOrder() {
+            telegram.showConfirm("確定手動平倉?", function(isOK){
+                if (isOK) {
+                    telegram.sendData("closeOrder=" + id);
+                }
+            })
+        }
+
+        function cancelAdjust() {
+            telegram.showConfirm("取消更新?", function(isOK){
+                if (isOK) {
+                    telegram.sendData("cancelAdjustOrder");
+                }
+            })
+        }
+    </script>
+</body>
+</html>
