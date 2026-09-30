@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單幣-修改倉位(執行中)</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.4;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .info-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .info-label {
+            color: var(--tg-theme-hint-color, #999999);
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        .info-value {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 6px;
+            font-size: 16px;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-primary {
+            background-color: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+        .btn-danger {
+            background-color: #ff3b30;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .leverage-value {
+            float: right;
+            font-size: 18px;
+        }
+        input.lev-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 28px;
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+        input.lev-slider::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--tg-theme-hint-color, #cccccc);
+        }
+        input.lev-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            margin-top: -9px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: var(--tg-theme-button-color, #007aff);
+        }
+        input.lev-slider::-moz-range-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--tg-theme-hint-color, #cccccc);
+        }
+        input.lev-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: var(--tg-theme-button-color, #007aff);
+        }
+        .lev-zones {
+            display: flex;
+            height: 10px;
+            margin: 2px 12px 0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .lev-zones div {
+            flex: 1;
+        }
+        .lev-zones div.current {
+            outline: 2px solid var(--tg-theme-text-color, #000000);
+            outline-offset: -2px;
+        }
+        .lev-scale {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 12px 0;
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        .analysis-box {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 2px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+        .analysis-box.level-green { border-color: #34c759; }
+        .analysis-box.level-amber { border-color: #ff9500; }
+        .analysis-box.level-red { border-color: #ff3b30; }
+        .analysis-status {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .level-green .analysis-status { color: #34c759; }
+        .level-amber .analysis-status { color: #ff9500; }
+        .level-red .analysis-status { color: #ff3b30; }
+        .analysis-reason {
+            margin-bottom: 4px;
+        }
+        .analysis-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .analysis-row span:first-child {
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        .analysis-hint {
+            margin-top: 6px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        .version {
+            text-align: center;
+            color: var(--tg-theme-hint-color, #999999);
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>單幣-修改倉位(執行中)(ver:2025082401)</h2>
+        
+        <!-- 訂單資訊 (只顯示) -->
+        <div class="info-group">
+            <h3>訂單資訊</h3>
+            <div class="info-label">訂單編號</div>
+            <div class="info-value" id="orderId"></div>
+            
+            <div class="info-label">交易標的</div>
+            <div class="info-value" id="symbolDirection"></div>
+            
+            <div class="info-label">當前數量</div>
+            <div class="info-value" id="currentQuantity"></div>
+            
+            <div class="info-label">平均成本</div>
+            <div class="info-value" id="averageCost"></div>
+            
+            <div class="info-label">當前停損價格</div>
+            <div class="info-value" id="currentStopLoss"></div>
+            
+            <div class="info-label">槓桿倍數</div>
+            <div class="info-value" id="leverage"></div>
+            
+            <div class="info-label">週期</div>
+            <div class="info-value" id="atrPeriod"></div>
+            
+            <div class="info-label">加碼設定</div>
+            <div class="info-value" id="enableScaling"></div>
+            
+            <div class="info-label">已實現盈虧</div>
+            <div class="info-value" id="realizedProfit"></div>
+        </div>
+        
+        <!-- 可修改參數 -->
+        <div class="form-group">
+            <label for="stopLossPrice">停損價格</label>
+            <input type="number" id="stopLossPrice" step="any" min="0" placeholder="輸入停損價格">
+            <div class="info-label" id="stopLossHint" style="margin-top:6px;"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="adjustATR">ATR 倍數 (影響動態停損調整)</label>
+            <input type="number" id="adjustATR" step="0.1" min="0.1" max="5.0" placeholder="輸入 ATR 倍數">
+        </div>
+
+        <div class="form-group">
+            <label for="leverageInput">槓桿倍數 <span class="leverage-value" id="leverageValue"></span></label>
+            <input type="range" class="lev-slider" id="leverageInput" min="1" max="125" step="1">
+            <div class="lev-zones" id="leverageZones"></div>
+            <div class="lev-scale"><span>1x</span><span id="maxLeverageText">125x</span></div>
+            <div class="analysis-box" id="leverageAnalysis"></div>
+        </div>
+        
+        <!-- 操作按鈕 -->
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="submitModification()">確認修改</button>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn btn-danger" onclick="manualClose()">手動平倉</button>
+            <button class="btn btn-secondary" onclick="cancelOperation()">取消</button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        let orderData = {};
+        let leverageData = null;  // { levels: [{leverage, limit}] 依槓桿由小到大, maxLeverage }
+
+        function parseLeverageData(raw) {
+            if (!raw) return null;
+            try {
+                const d = JSON.parse(raw);
+                const levels = d && d.brackets && d.brackets[orderData.symbol];
+                if (!Array.isArray(levels) || levels.length === 0) return null;
+                const sorted = levels.slice().sort((a, b) => a.leverage - b.leverage);
+                const maxLev = (d.max_leverage && d.max_leverage[orderData.symbol])
+                    || sorted[sorted.length - 1].leverage;
+                return { levels: sorted, maxLeverage: maxLev };
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function maxLeverage() {
+            return leverageData ? leverageData.maxLeverage : 125;
+        }
+
+        // 與多空修改頁 calculatePositionLimit 相同：取第一個涵蓋此槓桿的級別；
+        // 超過最大槓桿回傳 0（不沿用最後一級，否則會把無效槓桿當成有效）
+        function positionLimitFor(leverage) {
+            if (!leverageData) return null;
+            for (const b of leverageData.levels) {
+                if (leverage <= b.leverage) return b.limit;
+            }
+            return 0;
+        }
+
+        function fmtUsd(v) {
+            return '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        }
+
+        function referencePrice() {
+            const cp = parseFloat(orderData.currentPrice);
+            if (!isNaN(cp) && cp > 0) return cp;
+            const avg = parseFloat(orderData.averageCost);
+            return (!isNaN(avg) && avg > 0) ? avg : 0;
+        }
+
+        const ZONE_COLORS = { green: '#34c759', amber: '#ff9500', red: '#ff3b30', none: '#c7c7cc' };
+
+        // 交易所淨倉位名義價值：與後端 check_leverage_limit 同一來源；缺參數時以本單估算
+        function positionNotional(price) {
+            const pn = parseFloat(orderData.positionNotional);
+            if (orderData.positionNotional !== '' && !isNaN(pn)) return pn;
+            return (parseFloat(orderData.quantity) || 0) * price;
+        }
+
+        // 回傳 { level: green|amber|red, reasons, rows }：
+        // red 交易所會拒絕（擋下送出）；amber 可調整但加碼到上限前會被擋（需確認）
+        function analyzeLeverage(lev) {
+            const maxLev = maxLeverage();
+            if (!Number.isInteger(lev) || lev < 1 || lev > maxLev) {
+                return { level: 'red', reasons: [`槓桿必須是 1-${maxLev} 的整數`], rows: [] };
+            }
+            const price = referencePrice();
+            if (price <= 0) {
+                return { level: 'none', reasons: [], rows: [] };
+            }
+            const qty = parseFloat(orderData.quantity) || 0;
+            const limitQty = parseFloat(orderData.limitQuantity) || 0;
+            const oldLev = parseInt(orderData.leverage, 10);
+            const scaling = orderData.enableScaling === 'true' || orderData.enableScaling === 'True';
+            const pairLev = parseInt(orderData.pairLeverage, 10);
+            const balance = parseFloat(orderData.accountBalance);
+            const hasBalance = !isNaN(balance) && balance > 0;
+            const position = positionNotional(price);
+            const scaleQty = scaling && limitQty > qty ? limitQty - qty : 0;
+            const red = [], amber = [], rows = [];
+
+            if (pairLev && lev !== pairLev && lev !== oldLev) {
+                red.push(`此幣正被多空倉位以 ${pairLev}x 使用，須使用相同槓桿`);
+            }
+
+            // 1. 槓桿級別持倉上限
+            const cap = positionLimitFor(lev);
+            rows.push(['交易所現有倉位', fmtUsd(position)]);
+            rows.push([`${lev}x 持倉上限`, cap === null ? '無級別資料，由後端檢查' : fmtUsd(cap)]);
+            if (cap !== null && position > cap) {
+                red.push(`目前倉位 ${fmtUsd(position)} 超過 ${lev}x 持倉上限 ${fmtUsd(cap)}`);
+            }
+            if (scaleQty > 0) {
+                const scaled = position + scaleQty * price;
+                rows.push([`加碼到上限 ${limitQty}`, fmtUsd(scaled)]);
+                if (cap !== null && scaled > cap) {
+                    amber.push(`加碼到上限後倉位 ${fmtUsd(scaled)} 超過 ${lev}x 持倉上限`);
+                }
+            }
+
+            // 2. 保證金：可用餘額已扣除現有倉位的保證金，因此只比較「變動量」
+            const marginDelta = oldLev > 0 ? position / lev - position / oldLev : 0;
+            rows.push(['倉位保證金', oldLev > 0
+                ? `${fmtUsd(position / oldLev)} → ${fmtUsd(position / lev)}`
+                : fmtUsd(position / lev)]);
+            rows.push(['可用餘額', hasBalance ? fmtUsd(balance) : '無法取得，由交易所檢查']);
+            if (hasBalance && marginDelta > balance) {
+                red.push(`降低槓桿需額外保證金 ${fmtUsd(marginDelta)}，超過可用餘額`);
+            } else if (hasBalance && scaleQty > 0) {
+                const scaleMargin = scaleQty * price / lev;
+                if (scaleMargin > balance - Math.max(marginDelta, 0)) {
+                    amber.push(`加碼到上限需保證金 ${fmtUsd(scaleMargin)}，可用餘額不足`);
+                }
+            }
+
+            if (red.length) return { level: 'red', reasons: red, rows: rows };
+            if (amber.length) return { level: 'amber', reasons: amber, rows: rows };
+            return { level: 'green', reasons: [], rows: rows };
+        }
+
+        function describeGreenRange(greens) {
+            if (greens.length === 0) return '沒有全綠的槓桿';
+            const lo = greens[0], hi = greens[greens.length - 1];
+            if (lo === hi) return `綠色區間：${lo}x`;
+            return `綠色區間：${lo}x – ${hi}x` + (hi - lo + 1 === greens.length ? '' : '（中間有非綠色區段）');
+        }
+
+        function renderLeverageAnalysis() {
+            const slider = document.getElementById('leverageInput');
+            const maxLev = maxLeverage();
+            const lev = Number(slider.value);
+            const oldLev = parseInt(orderData.leverage, 10);
+            document.getElementById('leverageValue').textContent = lev === oldLev ? `${lev}x（目前）` : `${oldLev}x → ${lev}x`;
+
+            const zones = [], greens = [];
+            for (let i = 1; i <= maxLev; i++) {
+                const level = analyzeLeverage(i).level;
+                if (level === 'green') greens.push(i);
+                zones.push(`<div class="${i === lev ? 'current' : ''}" style="background:${ZONE_COLORS[level]}"></div>`);
+            }
+            document.getElementById('leverageZones').innerHTML = zones.join('');
+
+            const r = analyzeLeverage(lev);
+            const status = {
+                green: lev === oldLev ? '✅ 目前槓桿' : '✅ 可調整',
+                amber: '⚠️ 可調整，但加碼途中會被擋下',
+                red: lev === oldLev ? '❌ 目前槓桿已不符合條件' : '❌ 此槓桿無法調整',
+                none: '無法取得價格，無法試算，將由後端檢查'
+            }[r.level];
+            const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            const box = document.getElementById('leverageAnalysis');
+            box.className = 'analysis-box level-' + r.level;
+            box.innerHTML = `<div class="analysis-status">${status}</div>`
+                + r.reasons.map(t => `<div class="analysis-reason">${esc(t)}</div>`).join('')
+                + r.rows.map(([a, b]) => `<div class="analysis-row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')
+                + (r.level === 'none' ? '' : `<div class="analysis-hint">${esc(describeGreenRange(greens))}</div>`);
+        }
+
+        function initForm() {
+            tg.ready();
+            tg.expand();
+            
+            // 從 URL 參數獲取訂單資訊
+            const urlParams = new URLSearchParams(window.location.search);
+            orderData = {
+                id: urlParams.get('id') || '',
+                symbol: urlParams.get('symbol') || '',
+                direction: urlParams.get('direction') || '',
+                quantity: urlParams.get('quantity') || '',
+                averageCost: urlParams.get('averageCost') || '',
+                currentStopLoss: urlParams.get('currentStopLoss') || '',
+                leverage: urlParams.get('leverage') || '',
+                period: urlParams.get('period') || '',
+                enableScaling: urlParams.get('enableScaling') || '',
+                realizedProfit: urlParams.get('realizedProfit') || '',
+                adjustATR: urlParams.get('adjustATR') || '',
+                currentPrice: urlParams.get('currentPrice') || '',
+                limitQuantity: urlParams.get('limitQuantity') || '',
+                accountBalance: urlParams.get('accountBalance') || '',
+                positionNotional: urlParams.get('positionNotional') || '',
+                pairLeverage: urlParams.get('pairLeverage') || ''
+            };
+            leverageData = parseLeverageData(urlParams.get('leverageData'));
+            
+            // 填入訂單資訊
+            document.getElementById('orderId').textContent = orderData.id;
+            document.getElementById('symbolDirection').textContent = `${orderData.symbol} (${orderData.direction === 'long' ? '作多' : '作空'})`;
+            document.getElementById('currentQuantity').textContent = orderData.quantity;
+            document.getElementById('averageCost').textContent = orderData.averageCost;
+            document.getElementById('currentStopLoss').textContent = orderData.currentStopLoss;
+            document.getElementById('leverage').textContent = `${orderData.leverage}x`;
+            document.getElementById('atrPeriod').textContent = orderData.period;
+            document.getElementById('enableScaling').textContent = (orderData.enableScaling === 'true' || orderData.enableScaling === 'True') ? '已啟用' : '未啟用';
+            document.getElementById('realizedProfit').textContent = `$${orderData.realizedProfit}`;
+            
+            // 設定當前 ATR 倍數
+            document.getElementById('adjustATR').value = orderData.adjustATR;
+
+            // 設定當前停損價格
+            document.getElementById('stopLossPrice').value = orderData.currentStopLoss;
+
+            // 槓桿：上限取自該幣的槓桿級別，輸入時即時試算
+            const leverageInput = document.getElementById('leverageInput');
+            leverageInput.max = maxLeverage();
+            document.getElementById('maxLeverageText').textContent = maxLeverage() + 'x';
+            leverageInput.value = Math.min(parseInt(orderData.leverage, 10) || 1, maxLeverage());
+            leverageInput.addEventListener('input', renderLeverageAnalysis);
+            renderLeverageAnalysis();
+
+            // 顯示市價參考與方向提示
+            const hint = document.getElementById('stopLossHint');
+            const cp = parseFloat(orderData.currentPrice);
+            if (!isNaN(cp) && cp > 0) {
+                hint.textContent = orderData.direction === 'long'
+                    ? `當前市價 ${cp}，作多停損需低於市價`
+                    : `當前市價 ${cp}，作空停損需高於市價`;
+            } else {
+                hint.textContent = '（無法取得市價，將由後端檢查方向）';
+            }
+        }
+        
+        function submitModification() {
+            const adjustATR = document.getElementById('adjustATR').value;
+            const stopLossPrice = document.getElementById('stopLossPrice').value;
+
+            if (!adjustATR || adjustATR < 0.1 || adjustATR > 5.0) {
+                alert('請輸入有效的 ATR 倍數 (0.1-5.0)');
+                return;
+            }
+
+            const newSL = parseFloat(stopLossPrice);
+            if (!stopLossPrice || isNaN(newSL) || newSL <= 0) {
+                alert('請輸入有效的停損價格');
+                return;
+            }
+
+            // 有市價時先在前端擋掉方向錯誤，避免送出後才被退回
+            const cp = parseFloat(orderData.currentPrice);
+            if (!isNaN(cp) && cp > 0) {
+                if (orderData.direction === 'long' && newSL >= cp) {
+                    alert(`作多停損價必須低於當前市價 ${cp}\n若要立即出場請改用「手動平倉」`);
+                    return;
+                }
+                if (orderData.direction === 'short' && newSL <= cp) {
+                    alert(`作空停損價必須高於當前市價 ${cp}\n若要立即出場請改用「手動平倉」`);
+                    return;
+                }
+            }
+
+            const newLeverage = Number(document.getElementById('leverageInput').value);
+            const leverageResult = analyzeLeverage(newLeverage);
+            if (newLeverage !== parseInt(orderData.leverage, 10) && leverageResult.level === 'red') {
+                alert(`槓桿無法修改：\n${leverageResult.reasons.join('\n')}`);
+                return;
+            }
+
+            // 放寬停損時額外確認
+            const oldSL = parseFloat(orderData.currentStopLoss);
+            const loosened = !isNaN(oldSL) && (
+                (orderData.direction === 'long' && newSL < oldSL) ||
+                (orderData.direction === 'short' && newSL > oldSL)
+            );
+
+            const lines = [];
+            if (!isNaN(oldSL) && newSL !== oldSL) {
+                lines.push(`停損價格: ${oldSL} → ${newSL}`);
+            }
+            // 必須數值比較：number input 會把 "3.0" 正規化為 "3"，字串比較會誤判為有變更
+            const oldATR = parseFloat(orderData.adjustATR);
+            const newATR = parseFloat(adjustATR);
+            if (isNaN(oldATR) || newATR !== oldATR) {
+                lines.push(`ATR 倍數: ${orderData.adjustATR} → ${adjustATR}`);
+            }
+            const oldLeverage = parseInt(orderData.leverage, 10);
+            const leverageChanged = newLeverage !== oldLeverage;
+            if (leverageChanged) {
+                lines.push(`槓桿: ${orderData.leverage}x → ${newLeverage}x`);
+            }
+            if (lines.length === 0) {
+                alert('沒有任何變更');
+                return;
+            }
+            if (loosened) {
+                lines.push('注意：停損已放寬，風險增加');
+            }
+            if (leverageChanged && leverageResult.level === 'amber') {
+                leverageResult.reasons.forEach(w => lines.push(`注意：${w}，屆時加碼會被擋下`));
+            }
+
+            if (confirm(`確認以下修改？\n\n${lines.join('\n')}`)) {
+                let data = `id=${orderData.id}&stopLossPrice=${newSL}&adjustATR=${adjustATR}`;
+                if (leverageChanged) {
+                    data += `&leverage=${newLeverage}`;
+                }
+                tg.sendData(data);
+            }
+        }
+        
+        function manualClose() {
+            const confirmMessage = `確認手動平倉 ${orderData.symbol} ${orderData.direction === 'long' ? '作多' : '作空'} 部位？`;
+            if (confirm(confirmMessage)) {
+                const data = `closeOrder=${orderData.id}`;
+                tg.sendData(data);
+            }
+        }
+        
+        function cancelOperation() {
+            tg.sendData('cancelOperation');
+        }
+        
+        // 初始化表單
+        window.onload = initForm;
+    </script>
+</body>
+</html>
