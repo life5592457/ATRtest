@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單幣-修改倉位(掛單)</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.4;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .info-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .info-label {
+            color: var(--tg-theme-hint-color, #999999);
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        .info-value {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 6px;
+            font-size: 16px;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-primary {
+            background-color: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+        .btn-danger {
+            background-color: #ff3b30;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .checkbox-group input {
+            width: auto;
+        }
+        .checkbox-group label {
+            margin-bottom: 0;
+        }
+        .warning-box {
+            margin-bottom: 15px;
+            padding: 10px 12px;
+            border: 2px solid #ff3b30;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #ff3b30;
+        }
+        .leverage-value {
+            float: right;
+            font-size: 18px;
+        }
+        input.lev-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 28px;
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+        input.lev-slider::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--tg-theme-hint-color, #cccccc);
+        }
+        input.lev-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            margin-top: -9px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: var(--tg-theme-button-color, #007aff);
+        }
+        input.lev-slider::-moz-range-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--tg-theme-hint-color, #cccccc);
+        }
+        input.lev-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: var(--tg-theme-button-color, #007aff);
+        }
+        .lev-zones {
+            display: flex;
+            height: 10px;
+            margin: 2px 12px 0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .lev-zones div {
+            flex: 1;
+        }
+        .lev-zones div.current {
+            outline: 2px solid var(--tg-theme-text-color, #000000);
+            outline-offset: -2px;
+        }
+        .lev-scale {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 12px 0;
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        .analysis-box {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 2px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+        .analysis-box.level-green { border-color: #34c759; }
+        .analysis-box.level-amber { border-color: #ff9500; }
+        .analysis-box.level-red { border-color: #ff3b30; }
+        .analysis-status {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .level-green .analysis-status { color: #34c759; }
+        .level-amber .analysis-status { color: #ff9500; }
+        .level-red .analysis-status { color: #ff3b30; }
+        .analysis-reason {
+            margin-bottom: 4px;
+        }
+        .analysis-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .analysis-row span:first-child {
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        .analysis-hint {
+            margin-top: 6px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>單幣-修改倉位(掛單)(ver:2025082401)</h2>
+
+        <!-- 訂單基本資訊 -->
+        <div class="info-group">
+            <h3>掛單資訊</h3>
+            <div class="info-label">訂單編號</div>
+            <div class="info-value" id="orderId"></div>
+
+            <div class="info-label">交易標的</div>
+            <div class="info-value" id="symbolDirection"></div>
+
+            <div class="info-label">R 值</div>
+            <div class="info-value" id="rValue"></div>
+
+            <div class="info-label">計畫數量</div>
+            <div class="info-value" id="plannedQuantity"></div>
+        </div>
+
+        <div class="warning-box" id="directionWarning" style="display: none;"></div>
+
+        <!-- 可修改參數 -->
+        <div class="form-group">
+            <label for="targetPrice">目標價格 (觸發進場價格)</label>
+            <input type="number" id="targetPrice" step="any" min="0" placeholder="輸入目標價格">
+            <div class="info-label" id="targetHint" style="margin-top:6px;"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="stopLossPrice">停損價格</label>
+            <input type="number" id="stopLossPrice" step="any" min="0" placeholder="輸入停損價格">
+            <div class="info-label" style="margin-top:6px;">目標價或停損價改變時，計畫數量依 R 重算</div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="adjustATR">ATR 倍數</label>
+                <input type="number" id="adjustATR" step="0.1" min="0.1" max="5.0" placeholder="輸入 ATR 倍數">
+            </div>
+
+            <div class="form-group">
+                <label for="period">週期</label>
+                <select id="period" required>
+                    <option value="30m">30分鐘</option>
+                    <option value="1h" selected>1小時</option>
+                    <option value="2h">2小時</option>
+                    <option value="4h">4小時</option>
+                    <option value="8h">8小時</option>
+                    <option value="1d">1天</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="scalingInput">
+                <label for="scalingInput">啟用加碼</label>
+            </div>
+            <div id="multiplierGroup">
+                <label for="multiplierInput">加碼上限倍數 — 總倉位最多為計畫數量的幾倍（1–5）</label>
+                <input type="number" id="multiplierInput" step="0.5" min="1" max="5">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="leverageInput">槓桿倍數 <span class="leverage-value" id="leverageValue"></span></label>
+            <input type="range" class="lev-slider" id="leverageInput" min="1" max="125" step="1">
+            <div class="lev-zones" id="leverageZones"></div>
+            <div class="lev-scale"><span>1x</span><span id="maxLeverageText">125x</span></div>
+            <div class="analysis-box" id="leverageAnalysis"></div>
+        </div>
+
+        <!-- 操作按鈕 -->
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="submitModification()">確認修改</button>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-danger" onclick="cancelOrder()">取消掛單</button>
+            <button class="btn btn-secondary" onclick="cancelOperation()">取消操作</button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        let orderData = {};
+        let leverageData = null;  // { levels: [{leverage, limit}] 依槓桿由小到大, maxLeverage }
+
+        const ZONE_COLORS = { green: '#34c759', amber: '#ff9500', red: '#ff3b30', none: '#c7c7cc' };
+
+        function num(v) {
+            const n = parseFloat(v);
+            return isNaN(n) ? null : n;
+        }
+
+        function parseLeverageData(raw) {
+            if (!raw) return null;
+            try {
+                const d = JSON.parse(raw);
+                const levels = d && d.brackets && d.brackets[orderData.symbol];
+                if (!Array.isArray(levels) || levels.length === 0) return null;
+                const sorted = levels.slice().sort((a, b) => a.leverage - b.leverage);
+                const maxLev = (d.max_leverage && d.max_leverage[orderData.symbol])
+                    || sorted[sorted.length - 1].leverage;
+                return { levels: sorted, maxLeverage: maxLev };
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function maxLeverage() {
+            return leverageData ? leverageData.maxLeverage : 125;
+        }
+
+        // 與多空修改頁 calculatePositionLimit 相同：取第一個涵蓋此槓桿的級別；
+        // 超過最大槓桿回傳 0（不沿用最後一級）；無資料回傳 null
+        function positionLimitFor(leverage) {
+            if (!leverageData) return null;
+            for (const b of leverageData.levels) {
+                if (leverage <= b.leverage) return b.limit;
+            }
+            return 0;
+        }
+
+        function stepDecimals(step) {
+            const s = String(step);
+            if (s.indexOf('e-') >= 0) return parseInt(s.split('e-')[1], 10);
+            const i = s.indexOf('.');
+            return i < 0 ? 0 : s.replace(/0+$/, '').length - i - 1;
+        }
+
+        function roundToStep(value, step) {
+            const st = parseFloat(step);
+            if (!(st > 0)) return value;
+            return parseFloat((Math.round(value / st) * st).toFixed(stepDecimals(step)));
+        }
+
+        function fmtUsd(v) {
+            return '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        }
+
+        function fmtQty(v) {
+            return Number(v).toLocaleString('en-US', { maximumFractionDigits: 8 });
+        }
+
+        // 原本的加碼上限倍數；舊訂單沒有此欄位時為當時寫死的 2 倍（與後端 single_limit_multiplier_of 相同）
+        function originalMultiplier() {
+            const m = num(orderData.limitQuantityMultiplier);
+            return m > 0 ? m : 2;
+        }
+
+        // 依表單算出觸價時的計畫；欄位不合法時回傳 { ok: false, reason }
+        // 目標價與停損價都沒改時沿用原計畫數量，改了才依 R 重算（與後端 modify_waiting_single_order 相同）
+        function planOrder() {
+            const target = num(document.getElementById('targetPrice').value);
+            const stop = num(document.getElementById('stopLossPrice').value);
+            if (!(target > 0)) return { ok: false, reason: '輸入目標價格後顯示試算' };
+            if (!(stop > 0)) return { ok: false, reason: '輸入停損價格後顯示試算' };
+            if (orderData.direction === 'long' && stop >= target) return { ok: false, reason: '作多停損須低於目標價' };
+            if (orderData.direction === 'short' && stop <= target) return { ok: false, reason: '作空停損須高於目標價' };
+
+            const unchanged = target === num(orderData.targetPrice) && stop === num(orderData.stopLossPrice);
+            const R = num(orderData.R);
+            let qty = num(orderData.plannedQuantity) || 0;
+            if (!unchanged) {
+                if (!(R > 0)) return { ok: false, reason: '缺少 R 值，無法重算數量（將由後端檢查）' };
+                qty = roundToStep(R / Math.abs(target - stop), orderData.stepSize);
+            }
+            const scaling = document.getElementById('scalingInput').checked;
+            const multRaw = num(document.getElementById('multiplierInput').value);
+            const mult = scaling ? (multRaw >= 1 && multRaw <= 5 ? multRaw : originalMultiplier()) : 1;
+            const plan = {
+                ok: true, target: target, stop: stop, qty: qty, recalculated: !unchanged,
+                scaling: scaling, mult: mult,
+                init: qty * target, scaledQty: qty * mult, scaled: qty * mult * target, blockers: []
+            };
+            const minQty = num(orderData.minQty);
+            const minNotional = num(orderData.minNotional);
+            if (qty <= 0 || (minQty && qty < minQty)) {
+                plan.blockers.push(`計畫數量 ${fmtQty(qty)} 低於最小下單量 ${minQty}，請縮小停損距離`);
+            } else if (minNotional && plan.init < minNotional) {
+                plan.blockers.push(`倉位 ${fmtUsd(plan.init)} 低於最小交易額 ${fmtUsd(minNotional)}`);
+            }
+            return plan;
+        }
+
+        // 與新單頁 judgeLeverage、後端觸價進場前的檢查同規則：
+        // red 觸價時會被擋下；amber 可進場但加碼到上限前會被擋
+        function judgeLeverage(lev, plan) {
+            const red = plan.blockers.slice();
+            const amber = [];
+            const pairLev = parseInt(orderData.pairLeverage, 10);
+            if (pairLev && lev !== pairLev) {
+                red.push(`此幣正被多空訂單（倉位或掛單）以 ${pairLev}x 使用，須使用相同槓桿`);
+            }
+            const cap = positionLimitFor(lev);
+            const existing = num(orderData.positionNotional) || 0;
+            const balance = num(orderData.accountBalance);
+            if (cap !== null && existing + plan.init > cap) {
+                red.push(`進場後倉位 ${fmtUsd(existing + plan.init)} 超過 ${lev}x 持倉上限 ${fmtUsd(cap)}`);
+            }
+            if (balance > 0 && plan.init / lev > balance) {
+                red.push(`進場保證金 ${fmtUsd(plan.init / lev)} 超過可用餘額 ${fmtUsd(balance)}`);
+            }
+            if (plan.scaling && plan.mult > 1) {
+                if (cap !== null && existing + plan.scaled > cap) {
+                    amber.push(`加碼到上限後倉位 ${fmtUsd(existing + plan.scaled)} 超過 ${lev}x 持倉上限`);
+                }
+                if (balance > 0 && plan.scaled / lev > balance) {
+                    amber.push(`加碼到上限需保證金 ${fmtUsd(plan.scaled / lev)}，超過可用餘額`);
+                }
+            }
+            if (red.length) return { level: 'red', reasons: red };
+            if (amber.length) return { level: 'amber', reasons: amber };
+            return { level: 'green', reasons: [] };
+        }
+
+        function describeGreenRange(greens) {
+            if (greens.length === 0) {
+                return '沒有全綠的槓桿：可放寬停損距離或降低加碼倍數';
+            }
+            const lo = greens[0], hi = greens[greens.length - 1];
+            if (lo === hi) return `綠色區間：${lo}x`;
+            return `綠色區間：${lo}x – ${hi}x` + (hi - lo + 1 === greens.length ? '' : '（中間有非綠色區段）');
+        }
+
+        function renderPlan() {
+            const plan = planOrder();
+            const el = document.getElementById('plannedQuantity');
+            if (!plan.ok) {
+                el.textContent = fmtQty(num(orderData.plannedQuantity) || 0);
+            } else if (plan.recalculated) {
+                el.textContent = `${fmtQty(num(orderData.plannedQuantity) || 0)} → ${fmtQty(plan.qty)}（依 R 重算）`;
+            } else {
+                el.textContent = fmtQty(plan.qty);
+            }
+            document.getElementById('multiplierGroup').style.display =
+                document.getElementById('scalingInput').checked ? 'block' : 'none';
+        }
+
+        function renderLeverageAnalysis() {
+            const slider = document.getElementById('leverageInput');
+            const maxLev = maxLeverage();
+            const lev = Number(slider.value);
+            const oldLev = parseInt(orderData.leverage, 10);
+            document.getElementById('leverageValue').textContent = lev === oldLev ? `${lev}x（目前）` : `${oldLev}x → ${lev}x`;
+
+            const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            const box = document.getElementById('leverageAnalysis');
+            const plan = planOrder();
+            const zones = [];
+            if (!plan.ok) {
+                for (let i = 1; i <= maxLev; i++) {
+                    zones.push(`<div class="${i === lev ? 'current' : ''}" style="background:${ZONE_COLORS.none}"></div>`);
+                }
+                document.getElementById('leverageZones').innerHTML = zones.join('');
+                box.className = 'analysis-box';
+                box.innerHTML = `<div class="analysis-hint">${esc(plan.reason)}</div>`;
+                return;
+            }
+
+            const greens = [];
+            for (let i = 1; i <= maxLev; i++) {
+                const level = judgeLeverage(i, plan).level;
+                if (level === 'green') greens.push(i);
+                zones.push(`<div class="${i === lev ? 'current' : ''}" style="background:${ZONE_COLORS[level]}"></div>`);
+            }
+            document.getElementById('leverageZones').innerHTML = zones.join('');
+
+            const j = judgeLeverage(lev, plan);
+            const status = {
+                green: plan.scaling && plan.mult > 1 ? '✅ 觸價可進場，加碼到上限也放得下' : '✅ 觸價可進場',
+                amber: '⚠️ 觸價可進場，但加碼途中會被擋下',
+                red: lev === oldLev ? '❌ 目前槓桿觸價時會被擋下' : '❌ 此槓桿觸價時會被擋下'
+            }[j.level];
+            const cap = positionLimitFor(lev);
+            const balance = num(orderData.accountBalance);
+            const existing = num(orderData.positionNotional) || 0;
+            const rows = [['計畫數量', `${fmtQty(plan.qty)}（${fmtUsd(plan.init)}）`]];
+            if (plan.scaling && plan.mult > 1) {
+                rows.push([`加碼上限 ${plan.mult}x`, `${fmtQty(plan.scaledQty)}（${fmtUsd(plan.scaled)}）`]);
+            }
+            if (existing > 0) {
+                rows.push(['此幣交易所現有倉位', fmtUsd(existing)]);
+            }
+            rows.push([`${lev}x 持倉上限`, cap === null ? '無級別資料，由後端檢查' : fmtUsd(cap)]);
+            rows.push(['進場保證金', fmtUsd(plan.init / lev)]);
+            if (plan.scaling && plan.mult > 1) {
+                rows.push(['加碼上限保證金', fmtUsd(plan.scaled / lev)]);
+            }
+            rows.push(['可用餘額', balance > 0 ? fmtUsd(balance) : '無法取得，由交易所檢查']);
+            const shared = parseInt(orderData.sharedSingles, 10);
+            if (shared > 0 && lev !== oldLev) {
+                rows.push(['同幣種其他單幣', `${shared} 筆，槓桿會一起變更`]);
+            }
+
+            box.className = 'analysis-box level-' + j.level;
+            box.innerHTML = `<div class="analysis-status">${status}</div>`
+                + j.reasons.map(t => `<div class="analysis-reason">${esc(t)}</div>`).join('')
+                + rows.map(([a, b]) => `<div class="analysis-row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')
+                + `<div class="analysis-hint">${esc(describeGreenRange(greens))}</div>`;
+        }
+
+        function renderAll() {
+            renderPlan();
+            renderLeverageAnalysis();
+        }
+
+        // 與多空或其他執行中單幣反向：與槓桿無關，觸價時一定會被擋下
+        function renderDirectionWarning() {
+            const sides = s => (s || '').split(',').filter(Boolean);
+            const msgs = [];
+            const pairOpposite = sides(orderData.pairSides).filter(sd => sd !== orderData.direction);
+            if (pairOpposite.length) {
+                msgs.push(`此幣正被多空訂單以${pairOpposite[0] === 'long' ? '作多' : '作空'}使用`);
+            }
+            const singleOpposite = sides(orderData.singleSides).filter(sd => sd !== orderData.direction);
+            if (singleOpposite.length) {
+                msgs.push(`此幣已有執行中的單幣訂單以${singleOpposite[0] === 'long' ? '作多' : '作空'}持有`);
+            }
+            const box = document.getElementById('directionWarning');
+            if (msgs.length) {
+                box.textContent = `⚠️ ${msgs.join('；')}。帳戶為單向持倉，反向進場會互相抵銷，觸價時會被擋下，請先處理對方或取消此掛單`;
+                box.style.display = 'block';
+            }
+        }
+
+        function initForm() {
+            tg.ready();
+            tg.expand();
+
+            // 從 URL 參數獲取訂單資訊
+            const urlParams = new URLSearchParams(window.location.search);
+            const keys = ['id', 'symbol', 'direction', 'targetPrice', 'stopLossPrice', 'adjustATR', 'leverage',
+                'period', 'enableScaling', 'plannedQuantity', 'R', 'currentPrice', 'tickSize', 'stepSize', 'minQty',
+                'minNotional', 'accountBalance', 'positionNotional', 'pairLeverage', 'pairSides', 'singleSides',
+                'sharedSingles', 'limitQuantityMultiplier'];
+            orderData = {};
+            keys.forEach(k => { orderData[k] = urlParams.get(k) || ''; });
+            leverageData = parseLeverageData(urlParams.get('leverageData'));
+
+            // 填入訂單資訊
+            document.getElementById('orderId').textContent = orderData.id;
+            document.getElementById('symbolDirection').textContent = `${orderData.symbol} (${orderData.direction === 'long' ? '作多' : '作空'})`;
+            document.getElementById('rValue').textContent = orderData.R ? `${orderData.R} USDT` : '—';
+
+            // 設定當前參數值
+            document.getElementById('targetPrice').value = orderData.targetPrice;
+            document.getElementById('stopLossPrice').value = orderData.stopLossPrice;
+            document.getElementById('adjustATR').value = orderData.adjustATR;
+            // 舊訂單的週期若不在選單內，補上該選項，避免送出空值而被後端退回
+            const periodSel = document.getElementById('period');
+            if (orderData.period && ![...periodSel.options].some(o => o.value === orderData.period)) {
+                periodSel.add(new Option(orderData.period, orderData.period));
+            }
+            periodSel.value = orderData.period;
+            document.getElementById('scalingInput').checked = orderData.enableScaling === 'true';
+            document.getElementById('multiplierInput').value = originalMultiplier();
+
+            const cp = num(orderData.currentPrice);
+            document.getElementById('targetHint').textContent = cp > 0
+                ? (orderData.direction === 'long'
+                    ? `當前市價 ${cp}，作多目標價需低於市價（等待下跌時買入）`
+                    : `當前市價 ${cp}，作空目標價需高於市價（等待上漲時賣出）`)
+                : '（無法取得市價，將由後端檢查）';
+
+            const leverageInput = document.getElementById('leverageInput');
+            leverageInput.max = maxLeverage();
+            document.getElementById('maxLeverageText').textContent = maxLeverage() + 'x';
+            leverageInput.value = Math.min(parseInt(orderData.leverage, 10) || 1, maxLeverage());
+
+            ['targetPrice', 'stopLossPrice', 'scalingInput', 'multiplierInput', 'leverageInput'].forEach(id => {
+                document.getElementById(id).addEventListener('input', renderAll);
+                document.getElementById(id).addEventListener('change', renderAll);
+            });
+            renderDirectionWarning();
+            renderAll();
+        }
+
+        function submitModification() {
+            const targetPrice = document.getElementById('targetPrice').value;
+            const stopLossPrice = document.getElementById('stopLossPrice').value;
+            const adjustATR = document.getElementById('adjustATR').value;
+            const period = document.getElementById('period').value;
+            const scaling = document.getElementById('scalingInput').checked;
+            const mult = num(document.getElementById('multiplierInput').value);
+            const leverage = Number(document.getElementById('leverageInput').value);
+
+            const target = num(targetPrice);
+            const stopLoss = num(stopLossPrice);
+            const atr = num(adjustATR);
+            if (!(target > 0) || !(stopLoss > 0)) {
+                alert('請填入有效的目標價格與停損價格');
+                return;
+            }
+            if (!(atr >= 0.1 && atr <= 5.0)) {
+                alert('ATR 倍數必須在 0.1-5.0 之間');
+                return;
+            }
+            if (scaling && !(mult >= 1 && mult <= 5)) {
+                alert('加碼上限倍數需介於 1 – 5');
+                return;
+            }
+            if (orderData.direction === 'long' && stopLoss >= target) {
+                alert('作多時停損價格必須低於目標價格');
+                return;
+            }
+            if (orderData.direction === 'short' && stopLoss <= target) {
+                alert('作空時停損價格必須高於目標價格');
+                return;
+            }
+
+            // 目標價改變時比照建單：不可已越過市價，否則下一圈就會立即進場
+            const targetChanged = target !== num(orderData.targetPrice);
+            const cp = num(orderData.currentPrice);
+            if (targetChanged && cp > 0) {
+                if (orderData.direction === 'long' && cp <= target) {
+                    alert(`作多目標價必須低於當前市價 ${cp}（等待下跌時買入），否則會立即觸發進場`);
+                    return;
+                }
+                if (orderData.direction === 'short' && cp >= target) {
+                    alert(`作空目標價必須高於當前市價 ${cp}（等待上漲時賣出），否則會立即觸發進場`);
+                    return;
+                }
+            }
+
+            const plan = planOrder();
+            if (plan.ok && plan.blockers.length) {
+                alert(plan.blockers.join('\n'));
+                return;
+            }
+
+            const oldLeverage = parseInt(orderData.leverage, 10);
+            const leverageChanged = leverage !== oldLeverage;
+            const judged = plan.ok ? judgeLeverage(leverage, plan) : null;
+            if (leverageChanged && judged && judged.level === 'red') {
+                alert(`槓桿無法修改：\n${judged.reasons.join('\n')}`);
+                return;
+            }
+
+            // 只送有變更的欄位（數值比較：number input 會把 "3.0" 正規化為 "3"）
+            const lines = [];
+            let data = `id=${orderData.id}`;
+            if (targetChanged) {
+                lines.push(`目標價格: ${orderData.targetPrice} → ${target}`);
+                data += `&targetPrice=${target}`;
+            }
+            if (stopLoss !== num(orderData.stopLossPrice)) {
+                lines.push(`停損價格: ${orderData.stopLossPrice} → ${stopLoss}`);
+                data += `&stopLossPrice=${stopLoss}`;
+            }
+            if (plan.ok && plan.recalculated) {
+                lines.push(`計畫數量: ${orderData.plannedQuantity} → ${fmtQty(plan.qty)}（依 R 重算，以後端為準）`);
+            }
+            if (atr !== num(orderData.adjustATR)) {
+                lines.push(`ATR 倍數: ${orderData.adjustATR} → ${atr}`);
+                data += `&adjustATR=${atr}`;
+            }
+            if (period !== orderData.period) {
+                lines.push(`週期: ${orderData.period} → ${period}`);
+                data += `&period=${period}`;
+            }
+            if (scaling !== (orderData.enableScaling === 'true')) {
+                lines.push(`加碼: ${scaling ? '停用 → 啟用' : '啟用 → 停用'}`);
+                data += `&enableScaling=${scaling ? 'true' : 'false'}`;
+            }
+            if (scaling && mult !== originalMultiplier()) {
+                lines.push(`加碼上限倍數: ${originalMultiplier()} → ${mult}`);
+                data += `&limitQuantityMultiplier=${mult}`;
+            }
+            if (leverageChanged) {
+                lines.push(`槓桿: ${oldLeverage}x → ${leverage}x`);
+                data += `&leverage=${leverage}`;
+            }
+            if (lines.length === 0) {
+                alert('沒有任何變更');
+                return;
+            }
+            if (judged && judged.level === 'amber') {
+                judged.reasons.forEach(w => lines.push(`注意：${w}，屆時加碼會被擋下`));
+            }
+            if (judged && judged.level === 'red' && !leverageChanged) {
+                judged.reasons.forEach(w => lines.push(`注意：${w}，觸價時會被擋下`));
+            }
+
+            if (confirm(`確認修改掛單參數？\n\n${lines.join('\n')}`)) {
+                tg.sendData(data);
+            }
+        }
+
+        function cancelOrder() {
+            const confirmMessage = `確認取消掛單 ${orderData.symbol} ${orderData.direction === 'long' ? '作多' : '作空'}？`;
+            if (confirm(confirmMessage)) {
+                const data = `cancelOrder=${orderData.id}`;
+                tg.sendData(data);
+            }
+        }
+
+        function cancelOperation() {
+            tg.sendData('cancelOperation');
+        }
+
+        // 初始化表單
+        window.onload = initForm;
+    </script>
+</body>
+</html>
